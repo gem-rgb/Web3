@@ -1,0 +1,350 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rms
+  labels:
+    app.kubernetes.io/name: rms
+    app.kubernetes.io/part-of: rms
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rms-platform-config
+data:
+  ENVIRONMENT: production
+  LOG_LEVEL: info
+  KAFKA_TOPIC_PREFIX: rms
+  OTEL_SERVICE_NAME: rms-platform
+  RMS_HTTP_PORT: "8080"
+  RMS_AUTH_HTTP_PORT: "8081"
+  RMS_AUTH_GRPC_PORT: "50061"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rms-platform-secrets
+type: Opaque
+stringData:
+  postgres-password: change-me
+  redis-password: change-me
+  kafka-password: change-me
+  auth-secret: change-me
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-postgres
+spec:
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: rms-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rms-postgres
+spec:
+  serviceName: rms-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-postgres
+  template:
+    metadata:
+      labels:
+        app: rms-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: rms_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: rms_db
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U rms_user -d rms_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U rms_user -d rms_db"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-redis
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  selector:
+    app: rms-redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rms-redis
+spec:
+  serviceName: rms-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-redis
+  template:
+    metadata:
+      labels:
+        app: rms-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          args: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-zookeeper
+spec:
+  clusterIP: None
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+  selector:
+    app: rms-zookeeper
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rms-zookeeper
+spec:
+  serviceName: rms-zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-zookeeper
+  template:
+    metadata:
+      labels:
+        app: rms-zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.6.1
+          ports:
+            - containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+          readinessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/zookeeper/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-kafka
+spec:
+  clusterIP: None
+  ports:
+    - name: client
+      port: 9092
+      targetPort: 9092
+  selector:
+    app: rms-kafka
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rms-kafka
+spec:
+  serviceName: rms-kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-kafka
+  template:
+    metadata:
+      labels:
+        app: rms-kafka
+    spec:
+      containers:
+        - name: kafka
+          image: confluentinc/cp-kafka:7.6.1
+          ports:
+            - containerPort: 9092
+          env:
+            - name: KAFKA_BROKER_ID
+              value: "1"
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: rms-zookeeper:2181
+            - name: KAFKA_LISTENERS
+              value: PLAINTEXT://0.0.0.0:9092
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: PLAINTEXT://rms-kafka:9092
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: PLAINTEXT:PLAINTEXT
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: PLAINTEXT
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-nats
+spec:
+  ports:
+    - name: client
+      port: 4222
+      targetPort: 4222
+    - name: monitor
+      port: 8222
+      targetPort: 8222
+  selector:
+    app: rms-nats
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rms-nats
+spec:
+  serviceName: rms-nats
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-nats
+  template:
+    metadata:
+      labels:
+        app: rms-nats
+    spec:
+      containers:
+        - name: nats
+          image: nats:2.10-alpine
+          args: ["-js", "-m", "8222"]
+          ports:
+            - containerPort: 4222
+            - containerPort: 8222
+          readinessProbe:
+            tcpSocket:
+              port: 4222
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 4222
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rms-default-allow
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}

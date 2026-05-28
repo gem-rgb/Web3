@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package rms.exposure.v1;
+
+option go_package = "github.com/example/rms/generated/go/exposure/v1;exposurev1";
+
+import "common/v1/common.proto";
+
+message PositionUpdate {
+  rms.common.v1.Position position = 1;
+  bool is_new = 2;
+  string tenant_id = 3;
+  string correlation_id = 4;
+  string trace_id = 5;
+  map<string, string> metadata = 6;
+}
+
+message AccountExposureRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+}
+
+message AccountExposureResponse {
+  repeated rms.common.v1.AggregatedExposure exposures = 1;
+  int64 timestamp = 2;
+  string snapshot_version = 3;
+}
+
+message SymbolExposureRequest {
+  string tenant_id = 1;
+  string symbol = 2;
+}
+
+message SymbolExposureResponse {
+  repeated rms.common.v1.AggregatedExposure exposures = 1;
+  int64 timestamp = 2;
+  string snapshot_version = 3;
+}
+
+message ExposureSnapshotRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  string snapshot_version = 4;
+}
+
+message ExposureSnapshotResponse {
+  rms.common.v1.AggregatedExposure exposure = 1;
+  int64 event_sequence = 2;
+  string snapshot_version = 3;
+  int64 timestamp = 4;
+}
+
+message ExposureReplayRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  int64 from_sequence = 4;
+  int64 to_sequence = 5;
+  string snapshot_version = 6;
+  string reason = 7;
+  map<string, string> metadata = 8;
+}
+
+message ExposureReplayResponse {
+  int64 replayed = 1;
+  bool recovered = 2;
+  string snapshot_version = 3;
+  int64 timestamp = 4;
+}
+
+message ExposureReconciliationRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  bool force = 4;
+  map<string, string> metadata = 5;
+}
+
+message ExposureReconciliationResponse {
+  bool reconciled = 1;
+  bool drift_detected = 2;
+  int64 drift_count = 3;
+  map<string, string> details = 4;
+  int64 timestamp = 5;
+}
+
+service ExposureAggregationService {
+  rpc UpdatePosition (PositionUpdate) returns (rms.common.v1.AggregatedExposure);
+  rpc GetAccountExposure (AccountExposureRequest) returns (AccountExposureResponse);
+  rpc GetSymbolExposure (SymbolExposureRequest) returns (SymbolExposureResponse);
+  rpc GetExposureSnapshot (ExposureSnapshotRequest) returns (ExposureSnapshotResponse);
+  rpc ReplayExposureState (ExposureReplayRequest) returns (ExposureReplayResponse);
+  rpc ReconcileExposureState (ExposureReconciliationRequest) returns (ExposureReconciliationResponse);
+  rpc StreamAccountExposure (AccountExposureRequest) returns (stream rms.common.v1.AggregatedExposure);
+}

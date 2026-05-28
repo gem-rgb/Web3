@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package rms.portfolio.v1;
+
+option go_package = "github.com/example/rms/generated/go/portfolio/v1;portfoliov1";
+
+import "common/v1/common.proto";
+
+message PortfolioRiskRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  int64 as_of = 3;
+  bool include_cross_account = 4;
+  bool include_sector = 5;
+  repeated string symbols = 6;
+  string snapshot_version = 7;
+  map<string, string> metadata = 8;
+}
+
+message PortfolioRiskSummary {
+  string tenant_id = 1;
+  string account_id = 2;
+  double gross_exposure = 3;
+  double net_exposure = 4;
+  double long_exposure = 5;
+  double short_exposure = 6;
+  double unrealized_pl = 7;
+  double realized_pl = 8;
+  double leverage = 9;
+  double max_position_exposure = 10;
+  double concentration_pct = 11;
+  map<string, double> symbol_exposure = 12;
+  map<string, double> sector_exposure = 13;
+  map<string, double> cross_account_exposure = 14;
+  int32 position_count = 15;
+  string snapshot_version = 16;
+  int64 calculated_at = 17;
+  bool drift_detected = 18;
+  string risk_state = 19;
+  map<string, string> metadata = 20;
+}
+
+message PortfolioRiskResponse {
+  PortfolioRiskSummary summary = 1;
+  int64 timestamp = 2;
+}
+
+message PortfolioSnapshotRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string snapshot_version = 3;
+}
+
+message PortfolioSnapshotResponse {
+  repeated rms.common.v1.Position positions = 1;
+  repeated rms.common.v1.AggregatedExposure exposures = 2;
+  int64 timestamp = 3;
+}
+
+message PortfolioReplayRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  int64 from_sequence = 3;
+  int64 to_sequence = 4;
+  string snapshot_version = 5;
+  string reason = 6;
+  map<string, string> metadata = 7;
+}
+
+message PortfolioReplayResponse {
+  int64 replayed = 1;
+  bool recovered = 2;
+  string snapshot_version = 3;
+  int64 timestamp = 4;
+}
+
+message PortfolioReconciliationRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  bool strict = 3;
+  bool force = 4;
+  map<string, string> metadata = 5;
+}
+
+message PortfolioReconciliationResponse {
+  bool reconciled = 1;
+  bool drift_detected = 2;
+  int64 drift_count = 3;
+  map<string, string> details = 4;
+  int64 timestamp = 5;
+}
+
+message PortfolioRiskSubscriptionRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  map<string, string> metadata = 3;
+}
+
+service PortfolioRiskService {
+  rpc CalculatePortfolioRisk (PortfolioRiskRequest) returns (PortfolioRiskResponse);
+  rpc GetPortfolioSnapshot (PortfolioSnapshotRequest) returns (PortfolioSnapshotResponse);
+  rpc ReplayPortfolioState (PortfolioReplayRequest) returns (PortfolioReplayResponse);
+  rpc ReconcilePortfolioState (PortfolioReconciliationRequest) returns (PortfolioReconciliationResponse);
+  rpc StreamPortfolioRisk (PortfolioRiskSubscriptionRequest) returns (stream PortfolioRiskResponse);
+}

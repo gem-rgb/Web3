@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package rms.positions.v1;
+
+option go_package = "github.com/example/rms/generated/go/positions/v1;positionsv1";
+
+import "common/v1/common.proto";
+
+message PositionUpdateRequest {
+  rms.common.v1.Position position = 1;
+  bool is_new = 2;
+  string tenant_id = 3;
+  string correlation_id = 4;
+  string trace_id = 5;
+  map<string, string> metadata = 6;
+}
+
+message PositionUpdateResponse {
+  rms.common.v1.Position position = 1;
+  int64 timestamp = 2;
+  string snapshot_version = 3;
+}
+
+message PositionRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+}
+
+message PositionResponse {
+  rms.common.v1.Position position = 1;
+  int64 timestamp = 2;
+  string snapshot_version = 3;
+}
+
+message AccountPositionRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  bool include_closed = 3;
+}
+
+message AccountPositionResponse {
+  repeated rms.common.v1.Position positions = 1;
+  int64 timestamp = 2;
+  string snapshot_version = 3;
+}
+
+message PositionSnapshotRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string snapshot_version = 3;
+}
+
+message PositionSnapshotResponse {
+  repeated rms.common.v1.Position positions = 1;
+  int64 event_sequence = 2;
+  string snapshot_version = 3;
+  int64 timestamp = 4;
+}
+
+message PositionReplayRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  int64 from_sequence = 3;
+  int64 to_sequence = 4;
+  string snapshot_version = 5;
+  string reason = 6;
+  map<string, string> metadata = 7;
+}
+
+message PositionReplayResponse {
+  int64 replayed = 1;
+  bool recovered = 2;
+  string snapshot_version = 3;
+  int64 timestamp = 4;
+}
+
+message PositionReconciliationRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  bool force = 4;
+  map<string, string> metadata = 5;
+}
+
+message PositionReconciliationResponse {
+  bool reconciled = 1;
+  bool drift_detected = 2;
+  int64 drift_count = 3;
+  map<string, string> details = 4;
+  int64 timestamp = 5;
+}
+
+service PositionTrackingService {
+  rpc UpdatePosition (PositionUpdateRequest) returns (PositionUpdateResponse);
+  rpc GetPosition (PositionRequest) returns (PositionResponse);
+  rpc GetPositionsForAccount (AccountPositionRequest) returns (AccountPositionResponse);
+  rpc GetPositionSnapshot (PositionSnapshotRequest) returns (PositionSnapshotResponse);
+  rpc ReplayPositionState (PositionReplayRequest) returns (PositionReplayResponse);
+  rpc ReconcilePositionState (PositionReconciliationRequest) returns (PositionReconciliationResponse);
+  rpc StreamPositionUpdates (PositionRequest) returns (stream PositionUpdateResponse);
+}

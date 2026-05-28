@@ -1,0 +1,32 @@
+groups:
+  - name: rms-gateway
+    rules:
+      - alert: RMSGatewayDown
+        expr: up{job="rms-api-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: trading-platform
+        annotations:
+          summary: RMS API gateway is down
+          description: The API gateway has not been reachable for more than two minutes.
+
+      - alert: RMSGatewayRejectRatioHigh
+        expr: rate(rms_gateway_rejected_total[5m]) / clamp_min(rate(rms_gateway_requests_total[5m]), 1) > 0.25
+        for: 5m
+        labels:
+          severity: warning
+          team: trading-platform
+        annotations:
+          summary: Gateway rejection ratio is elevated
+          description: More than 25 percent of evaluated gateway requests are being rejected.
+
+      - alert: RMSGatewayThrottleSpike
+        expr: rate(rms_gateway_throttled_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: trading-platform
+        annotations:
+          summary: Gateway throttling spike detected
+          description: The gateway is throttling more than 10 orders per second over a five-minute window.

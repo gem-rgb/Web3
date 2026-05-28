@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package rms.alerting;
+
+// Import common messages
+import "common.proto";
+
+service AlertingService {
+  rpc SendAlert (Alert) returns (AlertResponse);
+  rpc GetAlertsForAccount (AccountAlertRequest) returns (AccountAlertResponse);
+  rpc GetAlertsForRule (RuleAlertRequest) returns (RuleAlertResponse);
+  rpc StreamAlerts (AlertSubscriptionRequest) returns (stream Alert);
+}
+
+message Alert {
+  rms.common.Alert alert = 1;
+}
+
+message AlertResponse {
+  string alert_id = 1;
+  int64 timestamp = 2;
+}
+
+message AccountAlertRequest {
+  string account_id = 1;
+  int32 limit = 2; // max number of alerts to return
+  int64 start_time = 3; // optional: start timestamp (Unix ms)
+  int64 end_time = 4; // optional: end timestamp (Unix ms)
+}
+
+message AccountAlertResponse {
+  repeated rms.common.Alert alerts = 1;
+  int64 timestamp = 2;
+}
+
+message RuleAlertRequest {
+  string rule_id = 1;
+  int32 limit = 2; // max number of alerts to return
+  int64 start_time = 3; // optional: start timestamp (Unix ms)
+  int64 end_time = 4; // optional: end timestamp (Unix ms)
+}
+
+message RuleAlertResponse {
+  repeated rms.common.Alert alerts = 1;
+  int64 timestamp = 2;
+}
+
+message AlertSubscriptionRequest {
+  string account_id = 1; // optional: if provided, only get alerts for this account
+  string rule_id = 2; // optional: if provided, only get alerts for this rule
+}

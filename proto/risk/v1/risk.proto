@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package rms.risk.v1;
+
+option go_package = "github.com/example/rms/generated/go/risk/v1;riskv1";
+
+import "common/v1/common.proto";
+
+message EvaluateOrderRequest {
+  rms.common.v1.Order order = 1;
+  rms.common.v1.Account account = 2;
+}
+
+message EvaluateOrderResponse {
+  bool approved = 1;
+  string reject_reason = 2;
+  repeated rms.common.v1.Violation violations = 3;
+}
+
+service RiskService {
+  rpc EvaluateOrder(EvaluateOrderRequest) returns (EvaluateOrderResponse);
+}

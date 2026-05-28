@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package rms.margin;
+
+// Import common messages
+import "common.proto";
+
+service MarginCalculationEngine {
+  rpc CalculateMargin (MarginCalculationRequest) returns (MarginCalculationResponse);
+  rpc GetAccountMargin (AccountMarginRequest) returns (AccountMarginResponse);
+  rpc StreamMarginUpdates (AccountMarginRequest) returns (stream MarginCalculationResponse);
+}
+
+message MarginCalculationRequest {
+  string account_id = 1;
+  bool force_recalc = 2; // if true, recalculate even if cached
+}
+
+message MarginCalculationResponse {
+  rms.common.MarginRequirement margin_requirement = 1;
+  int64 timestamp = 2;
+}
+
+message AccountMarginRequest {
+  string account_id = 1;
+}
+
+message AccountMarginResponse {
+  rms.common.MarginRequirement margin_requirement = 1;
+  int64 timestamp = 2;
+}

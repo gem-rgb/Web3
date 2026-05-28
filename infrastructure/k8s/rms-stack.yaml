@@ -1,0 +1,522 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-risk-evaluation-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rms-risk-evaluation-service
+  template:
+    metadata:
+      labels:
+        app: rms-risk-evaluation-service
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: rms-risk-evaluation-service
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: risk-evaluation-service
+          image: rms/risk-evaluation-service:latest
+          ports:
+            - containerPort: 50051
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rms-secrets
+                  key: database-url
+            - name: REDIS_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: rms-secrets
+                  key: redis-addr
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: rms-secrets
+                  key: kafka-brokers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-risk-evaluation-service
+spec:
+  selector:
+    app: rms-risk-evaluation-service
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-api-gateway
+  template:
+    metadata:
+      labels:
+        app: rms-api-gateway
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: rms-api-gateway
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: api-gateway
+          image: rms/api-gateway:latest
+          ports:
+            - containerPort: 50050
+            - containerPort: 8080
+          env:
+            - name: RMS_RISK_EVAL_ADDR
+              value: rms-risk-evaluation-service:50051
+            - name: RMS_MARKET_DATA_ADDR
+              value: rms-market-data-consumer:50054
+            - name: RMS_POSITION_TRACKING_ADDR
+              value: rms-position-tracking-service:50056
+            - name: RMS_EXPOSURE_ADDR
+              value: rms-exposure-aggregation-service:50055
+            - name: RMS_MARGIN_ADDR
+              value: rms-margin-calculation-engine:50057
+            - name: RMS_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: auth-secret
+            - name: RMS_AUTH_ISSUER
+              value: rms-auth
+            - name: RMS_AUTH_AUDIENCE
+              value: rms-platform
+            - name: RMS_HTTP_PORT
+              value: "8080"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: rms-otel-collector:4317
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-api-gateway
+spec:
+  selector:
+    app: rms-api-gateway
+  ports:
+    - name: grpc
+      port: 50050
+      targetPort: 50050
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-exposure-aggregation-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-exposure-aggregation-service
+  template:
+    metadata:
+      labels:
+        app: rms-exposure-aggregation-service
+    spec:
+      containers:
+        - name: exposure-aggregation-service
+          image: rms/exposure-aggregation-service:latest
+          ports:
+            - name: grpc
+              containerPort: 50055
+            - name: http
+              containerPort: 8086
+          env:
+            - name: POSTGRES_HOST
+              value: rms-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: rms_db
+            - name: POSTGRES_USER
+              value: rms_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: postgres-password
+            - name: REDIS_ADDR
+              value: rms-redis:6379
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+            - name: RMS_KAFKA_GROUP_ID
+              value: exposure-aggregation-service
+            - name: HTTP_ADDR
+              value: :8086
+            - name: GRPC_ADDR
+              value: :50055
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-exposure-aggregation-service
+spec:
+  selector:
+    app: rms-exposure-aggregation-service
+  ports:
+    - name: grpc
+      port: 50055
+      targetPort: 50055
+    - name: http
+      port: 8086
+      targetPort: 8086
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-margin-calculation-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-margin-calculation-engine
+  template:
+    metadata:
+      labels:
+        app: rms-margin-calculation-engine
+    spec:
+      containers:
+        - name: margin-calculation-engine
+          image: rms/margin-calculation-engine:latest
+          ports:
+            - containerPort: 50057
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-margin-calculation-engine
+spec:
+  selector:
+    app: rms-margin-calculation-engine
+  ports:
+    - name: grpc
+      port: 50057
+      targetPort: 50057
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-position-tracking-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-position-tracking-service
+  template:
+    metadata:
+      labels:
+        app: rms-position-tracking-service
+    spec:
+      containers:
+        - name: position-tracking-service
+          image: rms/position-tracking-service:latest
+          ports:
+            - name: grpc
+              containerPort: 50056
+            - name: http
+              containerPort: 8085
+          env:
+            - name: POSTGRES_HOST
+              value: rms-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: rms_db
+            - name: POSTGRES_USER
+              value: rms_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: postgres-password
+            - name: REDIS_ADDR
+              value: rms-redis:6379
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+            - name: HTTP_ADDR
+              value: :8085
+            - name: GRPC_ADDR
+              value: :50056
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-position-tracking-service
+spec:
+  selector:
+    app: rms-position-tracking-service
+  ports:
+    - name: grpc
+      port: 50056
+      targetPort: 50056
+    - name: http
+      port: 8085
+      targetPort: 8085
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-portfolio-risk-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-portfolio-risk-engine
+  template:
+    metadata:
+      labels:
+        app: rms-portfolio-risk-engine
+    spec:
+      containers:
+        - name: portfolio-risk-engine
+          image: rms/portfolio-risk-engine:latest
+          ports:
+            - name: grpc
+              containerPort: 50058
+            - name: http
+              containerPort: 8087
+          env:
+            - name: POSTGRES_HOST
+              value: rms-postgres
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: rms_db
+            - name: POSTGRES_USER
+              value: rms_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: postgres-password
+            - name: REDIS_ADDR
+              value: rms-redis:6379
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+            - name: KAFKA_GROUP_ID
+              value: portfolio-risk-engine
+            - name: HTTP_ADDR
+              value: :8087
+            - name: GRPC_ADDR
+              value: :50058
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-portfolio-risk-engine
+spec:
+  selector:
+    app: rms-portfolio-risk-engine
+  ports:
+    - name: grpc
+      port: 50058
+      targetPort: 50058
+    - name: http
+      port: 8087
+      targetPort: 8087
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-rule-engine-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-rule-engine-service
+  template:
+    metadata:
+      labels:
+        app: rms-rule-engine-service
+    spec:
+      containers:
+        - name: rule-engine-service
+          image: rms/rule-engine-service:latest
+          ports:
+            - containerPort: 50058
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-rule-engine-service
+spec:
+  selector:
+    app: rms-rule-engine-service
+  ports:
+    - name: grpc
+      port: 50058
+      targetPort: 50058
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-alerting-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-alerting-service
+  template:
+    metadata:
+      labels:
+        app: rms-alerting-service
+    spec:
+      containers:
+        - name: alerting-service
+          image: rms/alerting-service:latest
+          ports:
+            - containerPort: 50052
+          env:
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-alerting-service
+spec:
+  selector:
+    app: rms-alerting-service
+  ports:
+    - name: grpc
+      port: 50052
+      targetPort: 50052
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-audit-logging-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-audit-logging-service
+  template:
+    metadata:
+      labels:
+        app: rms-audit-logging-service
+    spec:
+      containers:
+        - name: audit-logging-service
+          image: rms/audit-logging-service:latest
+          ports:
+            - containerPort: 50053
+          env:
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-audit-logging-service
+spec:
+  selector:
+    app: rms-audit-logging-service
+  ports:
+    - name: grpc
+      port: 50053
+      targetPort: 50053
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-market-data-consumer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-market-data-consumer
+  template:
+    metadata:
+      labels:
+        app: rms-market-data-consumer
+    spec:
+      containers:
+        - name: market-data-consumer
+          image: rms/market-data-consumer:latest
+          ports:
+            - containerPort: 50054
+          env:
+            - name: KAFKA_BROKERS
+              value: rms-kafka:9092
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-market-data-consumer
+spec:
+  selector:
+    app: rms-market-data-consumer
+  ports:
+    - name: grpc
+      port: 50054
+      targetPort: 50054
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-admin-dashboard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-admin-dashboard
+  template:
+    metadata:
+      labels:
+        app: rms-admin-dashboard
+    spec:
+      containers:
+        - name: admin-dashboard
+          image: rms/admin-dashboard:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-admin-dashboard
+spec:
+  selector:
+    app: rms-admin-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP

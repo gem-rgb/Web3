@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-auth-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rms-auth-service
+  template:
+    metadata:
+      labels:
+        app: rms-auth-service
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: rms-auth-service
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: auth-service
+          image: rms/auth-service:latest
+          ports:
+            - containerPort: 8081
+            - containerPort: 50061
+          env:
+            - name: RMS_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rms-platform-secrets
+                  key: auth-secret
+            - name: RMS_AUTH_ISSUER
+              value: rms-auth
+            - name: RMS_AUTH_AUDIENCE
+              value: rms-platform
+            - name: RMS_AUTH_TTL
+              value: "15m"
+            - name: RMS_AUTH_CLIENTS
+              value: "trading-platform:dev-secret:institutional:trader,allocator;ops-console:dev-secret:operations:admin"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-auth-service
+spec:
+  selector:
+    app: rms-auth-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+    - name: grpc
+      port: 50061
+      targetPort: 50061
+  type: ClusterIP

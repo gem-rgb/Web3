@@ -1,0 +1,39 @@
+version: "3"
+
+tasks:
+  default:
+    cmds:
+      - task: dev-up
+
+  dev-up:
+    cmds:
+      - docker compose up -d --build
+
+  dev-down:
+    cmds:
+      - docker compose down -v
+
+  fmt:
+    cmds:
+      - go fmt ./...
+
+  lint:
+    cmds:
+      - go test ./...
+
+  test:
+    cmds:
+      - go test ./...
+
+  proto:
+    cmds:
+      - pwsh -File scripts/generate-proto.ps1
+
+  terraform-fmt:
+    cmds:
+      - cd infra/terraform && terraform fmt -recursive
+
+  terraform-validate:
+    cmds:
+      - cd infra/terraform && terraform init -backend=false
+      - cd infra/terraform && terraform validate

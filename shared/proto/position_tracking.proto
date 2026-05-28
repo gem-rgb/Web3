@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package rms.position;
+
+// Import common messages
+import "common.proto";
+
+service PositionTrackingService {
+  rpc UpdatePosition (PositionUpdateRequest) returns (PositionUpdateResponse);
+  rpc GetPosition (PositionRequest) returns (PositionResponse);
+  rpc GetPositionsForAccount (AccountPositionRequest) returns (AccountPositionResponse);
+  rpc StreamPositionUpdates (PositionRequest) returns (stream PositionUpdateResponse);
+}
+
+message PositionUpdateRequest {
+  rms.common.Position position = 1;
+  bool is_new = 2; // true if this is a new position, false if update
+}
+
+message PositionUpdateResponse {
+  rms.common.Position position = 1;
+  int64 timestamp = 2;
+}
+
+message PositionRequest {
+  string account_id = 1;
+  string symbol = 2;
+}
+
+message PositionResponse {
+  rms.common.Position position = 1;
+  int64 timestamp = 2;
+}
+
+message AccountPositionRequest {
+  string account_id = 1;
+}
+
+message AccountPositionResponse {
+  repeated rms.common.Position positions = 1;
+  int64 timestamp = 2;
+}

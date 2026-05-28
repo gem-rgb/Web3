@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package rms.common;
+
+// Common messages used across services
+
+message Order {
+  string order_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  int32 quantity = 4; // positive for buy, negative for sell
+  double price = 5;
+  string side = 6; // "BUY" or "SELL"
+  string order_type = 7; // "MARKET", "LIMIT", "STOP", etc.
+  string time_in_force = 8; // "DAY", "GTC", "IOC", etc.
+  int64 timestamp = 9; // Unix milliseconds
+  string strategy_id = 10; // Optional: ID of the trading strategy
+  map<string, string> metadata = 11; // Custom metadata
+}
+
+message Account {
+  string account_id = 1;
+  string user_id = 2;
+  string status = 3; // "ACTIVE", "SUSPENDED", "CLOSED"
+  double buying_power = 4;
+  double cash_balance = 5;
+  double market_value = 6;
+  double day_trading_buying_power = 7;
+  double maintenance_margin_excess = 8;
+  map<string, string> metadata = 9;
+}
+
+message Position {
+  string account_id = 1;
+  string symbol = 2;
+  int32 quantity = 3; // positive for long, negative for short
+  double average_price = 4;
+  double market_value = 5;
+  double cost_basis = 6;
+  double unrealized_pl = 7;
+  double realized_pl = 8;
+  string side = 9; // "LONG" or "SHORT"
+  int64 timestamp = 10; // Unix milliseconds
+}
+
+message RiskCheckResult {
+  bool approved = 1;
+  string reject_reason = 2; // empty if approved
+  repeated Violation violations = 3;
+  int64 timestamp = 4;
+}
+
+message Violation {
+  string rule_id = 1;
+  string rule_description = 2;
+  string severity = 3; // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+}
+
+message MarketDataUpdate {
+  string symbol = 1;
+  double bid_price = 2;
+  double ask_price = 3;
+  double last_price = 4;
+  int64 volume = 5;
+  int64 timestamp = 6;
+}
+
+message AggregatedExposure {
+  string account_id = 1;
+  string symbol = 2;
+  int32 net_quantity = 3;
+  double gross_exposure = 4; // absolute value of position * price
+  double net_exposure = 5; // net quantity * price (signed)
+  double market_value = 6;
+  int64 timestamp = 7;
+}
+
+message MarginRequirement {
+  string account_id = 1;
+  double initial_margin = 2;
+  double maintenance_margin = 3;
+  double margin_excess = 4;
+  double margin_ratio = 5; // equity / required margin
+  int64 timestamp = 6;
+}
+
+message Alert {
+  string alert_id = 1;
+  string account_id = 2;
+  string rule_id = 3;
+  string severity = 4; // "INFO", "WARNING", "ERROR", "CRITICAL"
+  string message = 5;
+  int64 timestamp = 6;
+  map<string, string> metadata = 7;
+}

@@ -1,0 +1,18 @@
+allInOne:
+  enabled: true
+  args:
+    - "--collector.otlp.enabled=true"
+
+collector:
+  enabled: true
+  otlp:
+    enabled: true
+
+query:
+  enabled: true
+
+agent:
+  enabled: false
+
+storage:
+  type: memory

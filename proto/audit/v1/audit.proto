@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package rms.audit.v1;
+
+option go_package = "github.com/example/rms/generated/go/audit/v1;auditv1";
+
+import "common/v1/common.proto";
+
+message LogEventRequest {
+  rms.common.v1.AuditEvent event = 1;
+}
+
+message LogEventResponse {
+  bool accepted = 1;
+}
+
+service AuditLoggingService {
+  rpc LogEvent(LogEventRequest) returns (LogEventResponse);
+}

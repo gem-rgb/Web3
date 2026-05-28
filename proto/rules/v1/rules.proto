@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package rms.rules.v1;
+
+option go_package = "github.com/example/rms/generated/go/rules/v1;rulesv1";
+
+import "common/v1/common.proto";
+
+message RuleConfig {
+  string rule_id = 1;
+  string rule_name = 2;
+  string rule_description = 3;
+  string rule_type = 4;
+  string severity = 5;
+  bool enabled = 6;
+  int32 priority = 7;
+  string tenant_id = 8;
+  string account_id = 9;
+  string symbol = 10;
+  repeated string chain_rule_ids = 11;
+  map<string, string> parameters = 12;
+  int64 created_at = 13;
+  int64 updated_at = 14;
+  string created_by = 15;
+  string updated_by = 16;
+}
+
+message GetActiveRulesRequest {
+  string rule_type = 1;
+  string tenant_id = 2;
+  string account_id = 3;
+  string symbol = 4;
+}
+
+message RuleUpdateRequest {
+  string rule_id = 1;
+}
+
+message GetActiveRulesResponse {
+  repeated RuleConfig rules = 1;
+  int64 timestamp = 2;
+}
+
+message RuleEvaluationRequest {
+  rms.common.v1.Order order = 1;
+  rms.common.v1.Account account = 2;
+  repeated rms.common.v1.Position positions = 3;
+  repeated rms.common.v1.MarketDataUpdate market_data = 4;
+  string tenant_id = 5;
+  string account_override = 6;
+}
+
+message RuleEvaluationResponse {
+  bool approved = 1;
+  string reject_reason = 2;
+  repeated rms.common.v1.Violation violations = 3;
+  int64 timestamp = 4;
+}
+
+message RuleReloadRequest {
+  string tenant_id = 1;
+  string source = 2;
+}
+
+message RuleReloadResponse {
+  bool reloaded = 1;
+  int64 timestamp = 2;
+}
+
+service RuleEngineService {
+  rpc GetActiveRules(GetActiveRulesRequest) returns (GetActiveRulesResponse);
+  rpc EvaluateRules(RuleEvaluationRequest) returns (RuleEvaluationResponse);
+  rpc ReloadRules(RuleReloadRequest) returns (RuleReloadResponse);
+  rpc StreamRuleUpdates(RuleUpdateRequest) returns (stream RuleConfig);
+}

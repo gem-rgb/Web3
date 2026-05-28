@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package rms.api;
+
+// Import common messages
+import "common.proto";
+
+service APIGatewayService {
+  rpc SubmitOrder (OrderRequest) returns (OrderResponse);
+  rpc CancelOrder (CancelOrderRequest) returns (CancelOrderResponse);
+  rpc GetAccountInfo (AccountInfoRequest) returns (AccountInfoResponse);
+  rpc GetMarketData (MarketDataRequest) returns (MarketDataResponse);
+  rpc StreamMarketData (MarketDataSubscriptionRequest) returns (stream MarketDataUpdate);
+}
+
+message OrderRequest {
+  rms.common.Order order = 1;
+  rms.common.Account account = 2; // Optional: if not provided, will be fetched from cache/db
+}
+
+message OrderResponse {
+  string order_id = 1;
+  bool approved = 2;
+  string reject_reason = 3; // empty if approved
+  repeated rms.common.Violation violations = 4;
+  int64 timestamp = 5;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string account_id = 2;
+}
+
+message CancelOrderResponse {
+  bool success = 1;
+  string reject_reason = 2; // empty if successful
+  int64 timestamp = 3;
+}
+
+message AccountInfoRequest {
+  string account_id = 1;
+}
+
+message AccountInfoResponse {
+  rms.common.Account account = 1;
+  repeated rms.common.Position positions = 2;
+  rms.common.MarginRequirement margin_requirement = 3;
+  repeated rms.common.AggregatedExposure exposures = 4;
+  int64 timestamp = 5;
+}
+
+message MarketDataRequest {
+  repeated string symbols = 1;
+}
+
+message MarketDataResponse {
+  repeated rms.common.MarketDataUpdate market_data = 1;
+  int64 timestamp = 2;
+}
+
+message MarketDataSubscriptionRequest {
+  repeated string symbols = 1;
+}

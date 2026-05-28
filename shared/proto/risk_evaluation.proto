@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package rms.risk;
+
+// Import common messages
+import "common.proto";
+
+service RiskEvaluationService {
+  rpc EvaluateOrder (OrderRequest) returns (OrderResponse);
+  rpc BatchEvaluateOrders (BatchOrderRequest) returns (BatchOrderResponse);
+  rpc StreamOrderEvaluations (stream OrderRequest) returns (stream OrderResponse);
+}
+
+message OrderRequest {
+  rms.common.Order order = 1;
+  rms.common.Account account = 2; // Optional: if not provided, will be fetched from cache/db
+}
+
+message OrderResponse {
+  string order_id = 1;
+  bool approved = 2;
+  string reject_reason = 3; // empty if approved
+  repeated rms.common.Violation violations = 4;
+  int64 timestamp = 5;
+}
+
+message BatchOrderRequest {
+  repeated rms.common.Order orders = 1;
+  repeated rms.common.Account accounts = 2; // Optional: if not provided, will be fetched from cache/db
+}
+
+message BatchOrderResponse {
+  repeated OrderResponse responses = 1;
+  int64 timestamp = 2;
+}

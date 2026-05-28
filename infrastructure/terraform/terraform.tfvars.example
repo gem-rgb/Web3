@@ -1,0 +1,4 @@
+kubeconfig_path = "~/.kube/config"
+namespace = "rms"
+grafana_admin_password = "change-me"
+

@@ -1,0 +1,135 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rms-otel-collector-config
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+
+    processors:
+      batch: {}
+
+    exporters:
+      debug: {}
+      jaeger:
+        endpoint: rms-jaeger:14250
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:8889
+
+    service:
+      telemetry:
+        logs:
+          level: info
+      pipelines:
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - jaeger
+            - debug
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            - debug
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-otel-collector
+  template:
+    metadata:
+      labels:
+        app: rms-otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.105.0
+          args:
+            - --config=/etc/otelcol/config.yaml
+          ports:
+            - containerPort: 4317
+            - containerPort: 4318
+            - containerPort: 8889
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+      volumes:
+        - name: config
+          configMap:
+            name: rms-otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-otel-collector
+spec:
+  selector:
+    app: rms-otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: metrics
+      port: 8889
+      targetPort: 8889
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rms-jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rms-jaeger
+  template:
+    metadata:
+      labels:
+        app: rms-jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.58
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 16686
+            - containerPort: 14250
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rms-jaeger
+spec:
+  selector:
+    app: rms-jaeger
+  ports:
+    - name: query
+      port: 16686
+      targetPort: 16686
+    - name: collector
+      port: 14250
+      targetPort: 14250
+  type: ClusterIP

@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package rms.common.v1;
+
+option go_package = "github.com/example/rms/generated/go/common/v1;commonv1";
+
+message Order {
+  string order_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  int32 quantity = 4;
+  double price = 5;
+  string side = 6;
+  string order_type = 7;
+  string time_in_force = 8;
+  int64 timestamp = 9;
+  map<string, string> metadata = 10;
+}
+
+message Account {
+  string account_id = 1;
+  string user_id = 2;
+  string status = 3;
+  double buying_power = 4;
+  double cash_balance = 5;
+  double market_value = 6;
+  double day_trading_buying_power = 7;
+  double maintenance_margin_excess = 8;
+  map<string, string> metadata = 9;
+  string tenant_id = 10;
+}
+
+message Position {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  string sector = 4;
+  int32 quantity = 5;
+  double average_price = 6;
+  double market_price = 7;
+  double market_value = 8;
+  double cost_basis = 9;
+  double unrealized_pl = 10;
+  double realized_pl = 11;
+  double gross_exposure = 12;
+  double net_exposure = 13;
+  double leverage = 14;
+  string side = 15;
+  int64 version = 16;
+  int64 sequence = 17;
+  string snapshot_version = 18;
+  int64 updated_at = 19;
+  int64 timestamp = 20;
+  map<string, string> metadata = 21;
+}
+
+message Violation {
+  string rule_id = 1;
+  string rule_description = 2;
+  string severity = 3;
+}
+
+message MarketDataUpdate {
+  string symbol = 1;
+  double bid_price = 2;
+  double ask_price = 3;
+  double last_price = 4;
+  int64 volume = 5;
+  int64 timestamp = 6;
+}
+
+message AggregatedExposure {
+  string tenant_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  string sector = 4;
+  int64 net_quantity = 5;
+  double gross_exposure = 6;
+  double net_exposure = 7;
+  double long_exposure = 8;
+  double short_exposure = 9;
+  double market_value = 10;
+  double unrealized_pl = 11;
+  double realized_pl = 12;
+  double leverage = 13;
+  double concentration_pct = 14;
+  int32 position_count = 15;
+  int64 version = 16;
+  int64 sequence = 17;
+  string snapshot_version = 18;
+  int64 updated_at = 19;
+  int64 timestamp = 20;
+  map<string, string> metadata = 21;
+}
+
+message MarginRequirement {
+  string account_id = 1;
+  double initial_margin = 2;
+  double maintenance_margin = 3;
+  double margin_excess = 4;
+  double margin_ratio = 5;
+  int64 timestamp = 6;
+}
+
+message Alert {
+  string alert_id = 1;
+  string account_id = 2;
+  string rule_id = 3;
+  string severity = 4;
+  string message = 5;
+  int64 timestamp = 6;
+  map<string, string> metadata = 7;
+}
+
+message AuditEvent {
+  string event_id = 1;
+  string event_type = 2;
+  string account_id = 3;
+  string service_name = 4;
+  string payload_json = 5;
+  int64 timestamp = 6;
+  int64 ingest_timestamp = 7;
+  map<string, string> metadata = 8;
+}
+
+message EventEnvelope {
+  string event_id = 1;
+  string event_type = 2;
+  string aggregate_id = 3;
+  string tenant_id = 4;
+  string correlation_id = 5;
+  string trace_id = 6;
+  string schema_version = 7;
+  int64 occurred_at_unix_ms = 8;
+  map<string, string> headers = 9;
+}

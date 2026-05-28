@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package rms.auth.v1;
+
+option go_package = "github.com/example/rms/generated/go/auth/v1;authv1";
+
+message IssueTokenRequest {
+  string client_id = 1;
+  string client_secret = 2;
+  string subject = 3;
+  string tenant_id = 4;
+  repeated string roles = 5;
+  repeated string scopes = 6;
+}
+
+message IssueTokenResponse {
+  string access_token = 1;
+  string token_type = 2;
+  int64 expires_in = 3;
+}
+
+message IntrospectTokenRequest {
+  string token = 1;
+}
+
+message IntrospectTokenResponse {
+  bool active = 1;
+  string subject = 2;
+  string tenant_id = 3;
+  repeated string roles = 4;
+  repeated string scopes = 5;
+  string error = 6;
+}
+
+service AuthService {
+  rpc IssueToken(IssueTokenRequest) returns (IssueTokenResponse);
+  rpc IntrospectToken(IntrospectTokenRequest) returns (IntrospectTokenResponse);
+}

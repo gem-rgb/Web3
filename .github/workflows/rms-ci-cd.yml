@@ -1,0 +1,155 @@
+name: RMS CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: rms-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.22"
+  NODE_VERSION: "20"
+
+jobs:
+  go-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - shared/platform
+          - shared/proto
+          - api-gateway
+          - risk-evaluation-service
+          - exposure-aggregation-service
+          - margin-calculation-engine
+          - position-tracking-service
+          - rule-engine-service
+          - alerting-service
+          - audit-logging-service
+          - market-data-consumer
+          - services/auth-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Test ${{ matrix.module }}
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        working-directory: client/admin-dashboard
+        run: npm install
+      - name: Build dashboard
+        working-directory: client/admin-dashboard
+        run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api-gateway
+            context: .
+            file: api-gateway/Dockerfile
+          - name: risk-evaluation-service
+            context: .
+            file: risk-evaluation-service/Dockerfile
+          - name: exposure-aggregation-service
+            context: .
+            file: exposure-aggregation-service/Dockerfile
+          - name: margin-calculation-engine
+            context: .
+            file: margin-calculation-engine/Dockerfile
+          - name: position-tracking-service
+            context: .
+            file: position-tracking-service/Dockerfile
+          - name: rule-engine-service
+            context: .
+            file: rule-engine-service/Dockerfile
+          - name: alerting-service
+            context: .
+            file: alerting-service/Dockerfile
+          - name: audit-logging-service
+            context: .
+            file: audit-logging-service/Dockerfile
+          - name: market-data-consumer
+            context: .
+            file: market-data-consumer/Dockerfile
+          - name: auth-service
+            context: .
+            file: services/auth-service/Dockerfile
+          - name: admin-dashboard
+            context: .
+            file: client/admin-dashboard/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="rms/${{ matrix.name }}"
+          docker build -f "${{ matrix.file }}" -t "${image}:${{ github.sha }}" -t "${image}:latest" "${{ matrix.context }}"
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+  kubernetes-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+      - name: Validate manifests
+        run: kubectl kustomize deployments/k8s > /tmp/rms-manifest.yaml
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - go-test
+      - frontend-build
+      - docker-build
+      - terraform-validate
+      - kubernetes-validate
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+      - name: Apply staging overlay
+        run: kubectl apply -k deployments/k8s
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Production promotion is gated by GitHub environment approval."

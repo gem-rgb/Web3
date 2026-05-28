@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package rms.rule;
+
+// Import common messages
+import "common.proto";
+
+service RuleEngineService {
+  rpc GetActiveRules (GetActiveRulesRequest) returns (GetActiveRulesResponse);
+  rpc EvaluateRules (RuleEvaluationRequest) returns (RuleEvaluationResponse);
+  rpc StreamRuleUpdates (RuleUpdateRequest) returns (stream Rule);
+}
+
+message GetActiveRulesRequest {
+  string rule_type = 1; // e.g., "PRE_TRADE", "POST_TRADE", "MONITORING"
+  string account_id = 2; // optional: if provided, get rules specific to account
+}
+
+message GetActiveRulesResponse {
+  repeated Rule rules = 1;
+  int64 timestamp = 2;
+}
+
+message RuleEvaluationRequest {
+  rms.common.Order order = 1;
+  rms.common.Account account = 2;
+  repeated rms.common.Position positions = 3; // current positions for the account
+  repeated rms.common.MarketDataUpdate market_data = 4; // relevant market data
+}
+
+message RuleEvaluationResponse {
+  bool approved = 1;
+  string reject_reason = 2; // empty if approved
+  repeated rms.common.Violation violations = 3;
+  int64 timestamp = 4;
+}
+
+message RuleUpdateRequest {
+  string rule_id = 1; // if empty, get all rule updates
+}
+
+message Rule {
+  string rule_id = 1;
+  string rule_name = 2;
+  string rule_description = 3;
+  string rule_type = 4; // "PRE_TRADE", "POST_TRADE", "MONITORING", "ALERT"
+  string severity = 5; // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  bool enabled = 6;
+  string condition_expression = 7; // e.g., "order.quantity > 10000"
+  map<string, string> parameters = 8; // rule-specific parameters
+  int64 created_at = 9;
+  int64 updated_at = 10;
+  string created_by = 11;
+  string updated_by = 12;
+}

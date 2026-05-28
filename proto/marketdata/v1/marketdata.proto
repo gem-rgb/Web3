@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package rms.marketdata.v1;
+
+option go_package = "github.com/example/rms/generated/go/marketdata/v1;marketdatav1";
+
+import "common/v1/common.proto";
+
+message MarketDataRequest {
+  repeated string symbols = 1;
+}
+
+message MarketDataResponse {
+  repeated rms.common.v1.MarketDataUpdate market_data = 1;
+}
+
+service MarketDataService {
+  rpc GetLatestMarketData(MarketDataRequest) returns (MarketDataResponse);
+}

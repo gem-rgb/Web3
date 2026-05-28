@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package rms.exposure;
+
+// Import common messages
+import "common.proto";
+
+service ExposureAggregationService {
+  rpc UpdatePosition (PositionUpdate) returns (AggregatedExposure);
+  rpc GetAccountExposure (AccountExposureRequest) returns (AccountExposureResponse);
+  rpc GetSymbolExposure (SymbolExposureRequest) returns (SymbolExposureResponse);
+  rpc StreamAccountExposure (AccountExposureRequest) returns (stream AggregatedExposure);
+}
+
+message PositionUpdate {
+  rms.common.Position position = 1;
+  bool is_new = 2; // true if this is a new position, false if update
+}
+
+message AccountExposureRequest {
+  string account_id = 1;
+}
+
+message AccountExposureResponse {
+  repeated AggregatedExposure exposures = 1;
+  int64 timestamp = 2;
+}
+
+message SymbolExposureRequest {
+  string symbol = 1;
+}
+
+message SymbolExposureResponse {
+  repeated AggregatedExposure exposures = 1;
+  int64 timestamp = 2;
+}
