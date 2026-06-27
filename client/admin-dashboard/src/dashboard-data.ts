@@ -116,13 +116,13 @@ const metricNames = {
   throttled: 'rms_gateway_throttled_total',
 } as const
 
-export function parseMetric(body: string, metricName: string): number {
+function parseMetric(body: string, metricName: string): number {
   const regex = new RegExp(`^${metricName}\\s+([0-9.]+)$`, 'm')
   const match = body.match(regex)
   return match ? Number(match[1]) : 0
 }
 
-export function parseGatewayMetrics(metricsText: string): GatewayMetrics {
+function parseGatewayMetrics(metricsText: string): GatewayMetrics {
   return {
     requests: parseMetric(metricsText, metricNames.requests),
     approved: parseMetric(metricsText, metricNames.approved),
